@@ -12,6 +12,16 @@ export const metricNotSupportedByModel = (
   );
 };
 
+export const actionNotSupportedByOSVersion = (
+  metric: string, 
+  action: string,
+  osVersion: string
+) => {
+  return new Error(
+    `${prefix}${metric}/${action} not supported on OS version ${osVersion}. See docs.neurosity.co for more info.`
+  );
+};
+
 export const locationNotFound = (
   location: string,
   modelVersion: string

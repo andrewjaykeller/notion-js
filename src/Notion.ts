@@ -38,6 +38,11 @@ import { DeviceInfo } from "./types/deviceInfo";
 import { DeviceStatus } from "./types/status";
 import { Action } from "./types/actions";
 import { HapticEffects } from "./types/hapticEffects";
+import {
+  Dataset,
+  DatasetMetadata,
+  DatasetStartMetadata
+} from "./types/dataset";
 import * as errors from "./utils/errors";
 import * as platform from "./utils/platform";
 import * as hapticEffects from "./utils/hapticEffects";
@@ -1344,5 +1349,105 @@ export class Notion {
    */
   public deleteUserExperiment(experimentId: string): Promise<void> {
     return this.api.deleteUserExperiment(experimentId);
+  }
+
+  /**
+   * Have the Crown record a length of data to the account of the user
+   *
+   * @param config
+   */
+  public async dataset(): Promise<any> {
+    const action = "startRecording";
+    if (!this.api.didSelectDevice()) {
+      return Promise.reject(errors.mustSelectDevice);
+    }
+
+    const datasetAddedToOSVersion = "15.7.0";
+    const osVersion = (await this.getSelectedDevice()).osVersion;
+    const supportsDataset = true; // TODO: Progamatically check
+
+    let response = null;
+
+    if (!supportsDataset) {
+      return Promise.reject(
+        errors.actionNotSupportedByOSVersion(
+          "brainwaves",
+          action,
+          osVersion
+        )
+      );
+    }
+
+    return {
+      /**
+       * Starts recording a dataset
+       * @category Dataset
+       */
+      start: async (metadata: DatasetStartMetadata) => {
+        if (!this.api.didSelectDevice()) {
+          throw errors.mustSelectDevice;
+        }
+        if (response) {
+          throw new Error("Recording already in progress.");
+        }
+        response = await this.dispatchAction({
+          command: "brainwaves",
+          action: "startRecording",
+          responseRequired: true,
+          responseTimeout: 10000,
+          message: {
+            ...metadata
+          }
+        });
+
+        return response;
+      },
+      /**
+       * Completes the dataset recording
+       * @category Dataset
+       */
+      complete: (metadata: DatasetMetadata) => {
+        if (!this.api.didSelectDevice()) {
+          throw errors.mustSelectDevice;
+        }
+
+        if (response == null) {
+          throw new Error(
+            "Recording must be started with dataset.start()"
+          );
+        }
+
+        return this.dispatchAction({
+          ...response.complete,
+          message: {
+            ...metadata,
+            ...(response.complete?.message ?? {})
+          }
+        });
+      },
+      /**
+       * Cancels a dataset recording
+       * @category Dataset
+       */
+      cancel: (metadata: Dataset) => {
+        if (!this.api.didSelectDevice()) {
+          throw errors.mustSelectDevice;
+        }
+
+        if (response == null) {
+          throw new Error(
+            "Recording must be started with dataset.start()"
+          );
+        }
+
+        return this.dispatchAction({
+          ...response.cancel,
+          message: {
+            ...metadata,
+            ...(response.cancel?.message ?? {})
+          }
+        });
+      }
+    };
   }
 }
